@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="https://cdn1.iconfinder.com/data/icons/videogames-5/32/Videogames_arcade_pong_pinball_flipper_pinbal-256.png" />
+
+  
+		<meta name="description" content="Phaser 2D Breakout Game">
+		 
+ <meta property="og:type" content="website">
+ <meta property="og:url" content="https://phaser-2d-breakout-game.vercel.app/">
+ <meta property="og:title" content="Phaser 2D Breakout Game">
+ <meta property="og:description" content="Phaser 2D Breakout Game">
+ <meta property="og:image" content="https://cdn1.iconfinder.com/data/icons/videogames-5/32/Videogames_arcade_pong_pinball_flipper_pinbal-256.png">
+ 
+  
+ <meta property="twitter:card" content="summary_large_image">
+ <meta property="twitter:url" content="https://phaser-2d-breakout-game.vercel.app/">
+ <meta property="twitter:title" content="Phaser 2D Breakout Game">
+ <meta property="twitter:description" content="Phaser 2D Breakout Game">
+ <meta property="twitter:image" content="https://cdn1.iconfinder.com/data/icons/videogames-5/32/Videogames_arcade_pong_pinball_flipper_pinbal-256.png">
+
+
+    <title>Phaser 2D Breakout Game</title>
+    <style>* { padding: 0; margin: 0; }</style>
+    <script src="js/phaser.2.4.2.min.js"></script>
+</head>
+<body>
+<script>
+    /* Breakout Game Scripts */
+ 
+ //----------- global variables and inits 
+
+ // init game/canvas
+ var breakoutGame = new Phaser.Game(480, 320, Phaser.AUTO, null, {
+    preload: preload, create: create, update: update
+  });
+
+
+  // ball 
+  var ball;
+
+  // paddle 
+  var paddle;
+
+  // brick
+  var bricks;
+
+  // new brick
+  var newBrick;
+
+   // brick info
+   var brickInfo;
+
+
+
+   // keep score
+   var scoreText;
+var score = 0;
+
+// lives
+var lives = 3;
+var livesText;
+var lifeLostText;
+
+// start game
+var playing = false;
+var startButton;
+
+   //----------- global variables and inits 
+
+
+  //------------ preload 
+  // takes care of preloading the assets
+  function preload() {
+  // scale the canvas screen but keep the aspect ratio
+  breakoutGame.scale.scaleMode = Phaser.ScaleManager.SHOW_ALL;
+  breakoutGame.scale.pageAlignHorizontally = true;
+  breakoutGame.scale.pageAlignVertically = true;
+  // background color
+  breakoutGame.stage.backgroundColor = '#ededed';
+
+
+  // load ball
+  breakoutGame.load.image('ball', 'images/ball.png')
+  // load paddle 
+  breakoutGame.load.image('paddle', 'images/paddle.png');
+  // load brick 
+  breakoutGame.load.image('brick', 'images/brick.png');
+  // load wobble 
+  // spritesheet -> a collection of different images
+  breakoutGame.load.spritesheet('ball', 'images/wobble.png', 20, 20);
+  // load game 
+  breakoutGame.load.spritesheet('button', 'images/button.png', 120, 40);
+  }
+  //------------end 
+
+
+ //------------create 
+
+  // executed once when everything is loaded and ready
+  function create() {
+    // init physics -> Phaser Arcade Engine
+    breakoutGame.physics.startSystem(Phaser.Physics.ARCADE);
+     // no collision on bottom edge screen -> game over
+     breakoutGame.physics.arcade.checkCollision.down = false;
+
+
+    // sprite def
+    // A Sprite Game Object is used for the display of both static and animated images
+    // 1st/2nd param -> x and y 
+    ball = breakoutGame.add.sprite(breakoutGame.world.width*0.5, breakoutGame.world.height-25, 'ball');
+    ball.animations.add('wobble', [0,1,0,2,0,1,0,2,0], 24);
+    ball.anchor.set(0.5); 
+
+    // ball enabled physics
+    breakoutGame.physics.enable(ball, Phaser.Physics.ARCADE);
+   // treat canvas as walls 
+   ball.body.collideWorldBounds = true;
+     // after colliding bounce off wall
+     ball.body.bounce.set(1);
+   // detect when ball is 'out of bounds' -> reaches bottom edge
+   // 'game over'
+   ball.checkWorldBounds = true;
+   ball.events.onOutOfBounds.add(ballLeaveScreen, this)
+
+
+     // init paddle 
+    // position paddle -> world.height & world.width
+    paddle = breakoutGame.add.sprite(breakoutGame.world.width*0.5, breakoutGame.world.height-5, 'paddle');
+    paddle.anchor.set(0.5,1);
+    breakoutGame.physics.enable(paddle, Phaser.Physics.ARCADE);
+    
+
+    // paddle is immovable -> wont disappear when ball collides
+    paddle.body.immovable = true;
+
+
+    // init bricks
+    initBricks();
+
+
+    // add score text to display  & lives to live
+    /* Text() method 
+      The x and y coordinates to draw the text at.
+        The actual text that will be rendered.
+        The font style to render the text with.
+      
+     */
+
+    //---- styles constant
+    textStyle = { font: '15px Arial', fill: '#0095DD' };
+    //------
+    
+    // score text
+    scoreText = breakoutGame.add.text(5, 5, 'Points: 0', textStyle);
+
+    // lives text
+    livesText = breakoutGame.add.text(breakoutGame.world.width-5, 5, 'Lives: '+lives, textStyle);
+    livesText.anchor.set(1,0);
+    lifeLostText = breakoutGame.add.text(breakoutGame.world.width*0.5, breakoutGame.world.height*0.5, 'Life lost, tap to continue', textStyle);
+    lifeLostText.anchor.set(0.5);
+    lifeLostText.visible = false;
+
+
+    // start button 
+    startButton = breakoutGame.add.button(breakoutGame.world.width*0.5, breakoutGame.world.height*0.5, 'button', startGame, this, 1, 0, 2);
+    startButton.anchor.set(0.5);
+  }
+ //------------end
+
+
+  //------------update 
+  //executed on every frame.
+  function update() {
+    // check for collision 
+    // for ball and paddle
+    breakoutGame.physics.arcade.collide(ball, paddle, ballHitPaddle);
+
+    // ball, bricks, paddle collision detection
+   breakoutGame.physics.arcade.collide(ball, bricks, ballHitBrick);
+
+    // allow for input to determine paddle placement
+    // set default to middle of screen
+    // keep paddle still before game starts
+
+    if(playing) {
+        paddle.x = breakoutGame.input.x || breakoutGame.world.width*0.5;
+    }
+  }
+  //------------ end 
+
+
+  // bricks 
+  function initBricks() {
+    brickInfo = {
+        width: 50,
+        height: 20,
+        count: {
+            row: 3,
+            col: 7
+        },
+        offset: {
+            top: 50,
+            left: 60
+        },
+        padding: 10
+    }
+    bricks = breakoutGame.add.group();
+    for(c=0; c<brickInfo.count.col; c++) {
+        for(r=0; r<brickInfo.count.row; r++) {
+            var brickX = (c*(brickInfo.width+brickInfo.padding))+brickInfo.offset.left;
+            var brickY = (r*(brickInfo.height+brickInfo.padding))+brickInfo.offset.top;
+            newBrick = breakoutGame.add.sprite(brickX, brickY, 'brick');
+            breakoutGame.physics.enable(newBrick, Phaser.Physics.ARCADE);
+            newBrick.body.immovable = true;
+            newBrick.anchor.set(0.5);
+            bricks.add(newBrick);
+        }
+    }
+}
+
+// ball hit brick 
+function ballHitBrick(ball, brick) {
+    // on ball hit brick 'kill'/remove brick
+    var killTween = breakoutGame.add.tween(brick.scale);
+killTween.to({x:0,y:0}, 200, Phaser.Easing.Linear.None);
+killTween.onComplete.addOnce(function(){
+    brick.kill();
+}, this);
+killTween.start();
+
+    // update score when ball hits a brick
+    score += 10;
+    scoreText.setText('Points: '+score);
+    if(score === brickInfo.count.row*brickInfo.count.col*10) {
+        alert('You won the game, congratulations!');
+        location.reload();
+    }
+}
+
+// -------------ball out of bounds code 
+function ballLeaveScreen() {
+  lives--;
+  if(lives) {
+      livesText.setText('Lives: '+lives);
+      lifeLostText.visible = true;
+      ball.reset(breakoutGame.world.width*0.5, breakoutGame.world.height-25);
+      paddle.reset(breakoutGame.world.width*0.5, breakoutGame.world.height-5);
+      breakoutGame.input.onDown.addOnce(function(){
+          lifeLostText.visible = false;
+          ball.body.velocity.set(150, -150);
+      }, this);
+  }
+  else {
+      alert('You lost, game over!');
+      location.reload();
+  }
+}
+
+// play wobble 
+// ball hit paddle
+function ballHitPaddle(ball, paddle) {
+  ball.animations.play('wobble');
+}
+
+// start game function
+function startGame() {
+  startButton.destroy();
+    ball.body.velocity.set(150, -150);
+    playing = true;
+}
+</script>
+</body>
+</html>
